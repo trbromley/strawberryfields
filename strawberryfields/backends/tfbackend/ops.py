@@ -61,14 +61,30 @@ def mix(pure_state, batched=False):
     if num_modes > max_num:
         raise ValueError("Converting state from pure to mixed currently only supported for {} modes.".format(max_num))
     else:
+        # Previous implementation that worked up to TFv1.8 (and should have also worked there)
         # eqn: 'abc...xyz,ABC...XYZ->aAbBcC...xXyYzZ' (lowercase belonging to 'bra' side, uppercase belonging to 'ket' side)
-        batch_index = indices[:batch_offset]
-        bra_indices = indices[batch_offset: batch_offset + num_modes]
-        ket_indices = indices[batch_offset + num_modes : batch_offset + 2 * num_modes]
-        eqn_lhs = batch_index + bra_indices + "," + batch_index + ket_indices
-        eqn_rhs = "".join(bdx + kdx for bdx, kdx in zip(bra_indices, ket_indices))
-        eqn = eqn_lhs + "->" + batch_index + eqn_rhs
-        mixed_state = tf.einsum(eqn, pure_state, tf.conj(pure_state))
+        #batch_index = indices[:batch_offset]
+        #bra_indices = indices[batch_offset: batch_offset + num_modes]
+        #ket_indices = indices[batch_offset + num_modes : batch_offset + 2 * num_modes]
+        #eqn_lhs = batch_index + bra_indices + "," + batch_index + ket_indices
+        #eqn_rhs = "".join(bdx + kdx for bdx, kdx in zip(bra_indices, ket_indices))
+        #eqn = eqn_lhs + "->" + batch_index + eqn_rhs
+        #mixed_state = tf.einsum(eqn, pure_state, tf.conj(pure_state))
+
+        # Note: there is a hard-to-track-down bug in TFv1.8 that causes the einsum (commented out above) to ignore the complex conjugatation when called within SF.
+        # Unfortunately, this only occurs *sometimes* so it is difficult to isolate it exactly.
+        # What follows below is a hack that uses broadcasted multiplication to achive the same effect, so that we can support as many versions of TF as possible
+        pure_shape = pure_state.get_shape().as_list()
+        unbatched_shape = pure_shape[1:]
+        # interleave 1s at every second entry (useful for broadcasting)
+        new_unbatched_shape_ket = [unbatched_shape[idx // 2] if idx % 2 == 0 else 1 for idx in range(2 * len(unbatched_shape))]
+        new_unbatched_shape_bra = [unbatched_shape[idx // 2] if idx % 2 != 0 else 1 for idx in range(2 * len(unbatched_shape))]
+        new_shape_ket = pure_shape[:1] + new_unbatched_shape_ket
+        new_shape_bra = pure_shape[:1] + new_unbatched_shape_bra
+        reshaped_ket = tf.reshape(pure_state, new_shape_ket)
+        reshaped_bra = tf.reshape(tf.conj(pure_state), new_shape_bra)
+        mixed_state = reshaped_ket * reshaped_bra
+
     if not batched:
         mixed_state = tf.squeeze(mixed_state, 0) # drop fake batch dimension
     return mixed_state
