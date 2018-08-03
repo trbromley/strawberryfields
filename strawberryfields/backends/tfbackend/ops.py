@@ -51,9 +51,8 @@ def _numer_safe_power(base, exponent):
 
     return base ** exponent
 
-def mixed(pure_state, batched=False):
+def mix(pure_state, batched=False):
     """Converts the state from pure to mixed"""
-    #todo: In the fock backend mixing is done by ops.mix(), maybe the functions should be named identically?
     if not batched:
         pure_state = tf.expand_dims(pure_state, 0) # add in fake batch dimension
     batch_offset = 1
@@ -350,21 +349,21 @@ def fock_state(n, D, pure=True, batched=False):
     fock_sparse = tf.scatter_nd(idxs, values, shape)
     fock = tf.cast(fock_sparse, def_type)
     if not pure:
-        fock = mixed(fock, batched)
+        fock = mix(fock, batched)
     return fock
 
 def coherent_state(alpha, D, pure=True, batched=False):
     """creates a single mode input coherent state"""
     coh = tf.stack([tf.exp(-0.5 * tf.conj(alpha) * alpha) * _numer_safe_power(alpha, n) / tf.cast(np.sqrt(factorial(n)), def_type) for n in range(D)], axis=-1)
     if not pure:
-        coh = mixed(coh, batched)
+        coh = mix(coh, batched)
     return coh
 
 def squeezed_vacuum(r, theta, D, pure=True, batched=False):
     """creates a single mode input squeezed vacuum state"""
     squeezed = squeezed_vacuum_vector(r, theta, D, batched=batched)
     if not pure:
-        squeezed = mixed(squeezed, batched)
+        squeezed = mix(squeezed, batched)
     return squeezed
 
 def displaced_squeezed(alpha, r, phi, D, pure=True, batched=False, eps=1e-12):
@@ -389,7 +388,7 @@ def displaced_squeezed(alpha, r, phi, D, pure=True, batched=False, eps=1e-12):
     squeezed_coh = prefactor * coeff * hermite_terms
 
     if not pure:
-        squeezed_coh = mixed(squeezed_coh, batched)
+        squeezed_coh = mix(squeezed_coh, batched)
     return squeezed_coh
 
 def thermal_state(nbar, D):
@@ -552,7 +551,7 @@ def single_mode_superop(superop, mode, in_modes, pure=True, batched=False):
         raise NotImplementedError("The max number of supported modes for this operation is currently {}".format(max_len))
     else:
         if pure:
-            in_modes = mixed(in_modes, batched)
+            in_modes = mix(in_modes, batched)
 
         # create equation
         batch_index = indices[:batch_offset]
@@ -719,11 +718,11 @@ def replace_modes(replacement, modes, system, system_is_pure, batched=False):
         # make both system and replacement mixed
         # todo: For performance the partial trace could be done directly from the pure state. This would of course require a better partial trace function...
         if system_is_pure:
-            system = mixed(system, batched)
+            system = mix(system, batched)
 
         #mix the replacement if it is pure
         if replacement_is_pure:
-            replacement = mixed(replacement, batched)
+            replacement = mix(replacement, batched)
 
         # partial trace out modes
         # todo: We are tracing out the modes one by one in descending order (to not screw up things). This is quite inefficient.
@@ -796,7 +795,7 @@ def insert_state(state, system, state_is_pure, mode=None, batched=False):
             if state_is_pure:
                 return state
             else:
-                return mixed(state)
+                return mix(state)
         elif len(state.shape) - batch_offset == 2:
             return state
         else:
@@ -841,7 +840,7 @@ def partial_trace(system, mode, state_is_pure, batched=False):
         num_modes = (num_indices - batch_offset) // 2
 
     if state_is_pure:
-        system = mixed(system, batched)
+        system = mix(system, batched)
 
     # tensorflow trace implementation
     # requires subsystem to be traced out to be at end
@@ -858,7 +857,7 @@ def reduced_density_matrix(system, mode, state_is_pure, batched=False):
     This operation always returns a mixed state, since we do not know in advance if a mode is entangled with others.
     """
     if state_is_pure:
-        reduced_state = mixed(system, batched)
+        reduced_state = mix(system, batched)
     else:
         reduced_state = system
     num_indices = len(reduced_state.shape)
