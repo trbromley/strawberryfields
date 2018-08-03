@@ -27,7 +27,7 @@ requirements = [
     "numpy>=1.13",
     "scipy>=1.0.0",
     "networkx>=2.0",
-    "tensorflow>=1.9"
+    "tensorflow==1.8"
 ]
 
 # extra_requirements = [
