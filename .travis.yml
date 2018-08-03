@@ -11,10 +11,6 @@ env:
     - LOGGING=info
 matrix:
   include:
-    - env: BACKEND=gaussian
-    - env: BACKEND=gaussian MIXED=1
-    - env: BACKEND=fock
-    - env: BACKEND=fock MIXED=1
     - env: BACKEND=tf
       sudo: required
     - env: BACKEND=tf MIXED=1
