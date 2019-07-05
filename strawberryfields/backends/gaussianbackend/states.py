@@ -29,23 +29,14 @@ class GaussianState(BaseGaussianState):
         num_modes (int): the number of modes in the state
         qmat (array): The covariance matrix for the Q function
         Amat (array): The A matrix from Hamilton's paper
-        hbar (float): (default 2) The value of :math:`\hbar` in the commutation relation
-            :math:`[\x,\p]=i\hbar`
         mode_names (Sequence): (optional) this argument contains a list providing mode names
             for each mode in the state
     """
-    def __init__(self, state_data, num_modes, qmat, Amat, hbar=2., mode_names=None):
+    def __init__(self, state_data, num_modes, qmat, Amat, mode_names=None):
         # pylint: disable=too-many-arguments
-        super().__init__(state_data, num_modes, hbar, mode_names)
-
-        # some of the Gaussian backend operations expect as input a 'GaussianMode' class.
-        # The following mini class matches the attributes expected for fock_probs and fidelity.
-        self._gmode = type("_GaussianMode", (), {
-            "nlen" : self._modes,
-            "mean" : self._alpha,
-            "qmat": (lambda: qmat),
-            "Amat": (lambda: Amat)
-        })
+        super().__init__(state_data, num_modes, mode_names)
+        self.qmat = qmat
+        self.Amat = Amat
 
     def reduced_dm(self, modes, **kwargs):
         r"""Returns the reduced density matrix in the Fock basis for a particular mode.
@@ -66,7 +57,7 @@ class GaussianState(BaseGaussianState):
         mu, cov = self.reduced_gaussian([modes]) # pylint: disable=unused-variable
         cov = cov * 2/self._hbar
 
-        return fock_amplitudes_one_mode(self._alpha[modes], cov, cutoff-1)
+        return fock_amplitudes_one_mode(self._alpha[modes], cov, cutoff)
 
     #==========================================
     # The methods below inherit their docstring
@@ -82,7 +73,12 @@ class GaussianState(BaseGaussianState):
 
         ocp = np.uint8(np.array(n))
 
-        return fock_prob(self._gmode, ocp)
+        # get the vector and means and covariance
+        # matrix, and normalize so that hbar=2
+        mu = self.means() * np.sqrt(2/self.hbar)
+        cov = self.cov() * 2/self.hbar
+
+        return fock_prob(mu, cov, ocp)
 
     def mean_photon(self, mode, **kwargs):
         mu, cov = self.reduced_gaussian([mode])
@@ -108,8 +104,7 @@ class GaussianState(BaseGaussianState):
         if len(alpha_list) != self._modes:
             raise ValueError("alpha_list must be same length as the number of modes")
 
-        Q = self._gmode.qmat()
-        Qi = np.linalg.inv(Q)
+        Qi = np.linalg.inv(self.qmat)
         delta = self._alpha - alpha_list
 
         delta = np.concatenate((delta, delta.conj()))

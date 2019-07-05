@@ -24,10 +24,13 @@ with open("strawberryfields/_version.py") as f:
 # cmdclass = {'build_docs': BuildDoc}
 
 requirements = [
-    "numpy>=1.13",
+    "numpy>=1.16.3",
     "scipy>=1.0.0",
     "networkx>=2.0",
-    "tensorflow>=1.3.0,<1.7"
+    "quantum-blackbird>=0.2.0",
+    "hafnian>=0.6",
+    "toml",
+    "appdirs"
 ]
 
 # extra_requirements = [
@@ -44,7 +47,7 @@ info = {
     'license': 'Apache License 2.0',
     'packages': [
                     'strawberryfields',
-                    # 'strawberryfields.templates',
+                    'strawberryfields.devicespecs',
                     'strawberryfields.backends',
                     'strawberryfields.backends.tfbackend',
                     'strawberryfields.backends.fockbackend',
@@ -53,7 +56,7 @@ info = {
     'package_data': {'strawberryfields': ['backends/data/*']},
     'include_package_data': True,
     'description': 'Open source library for continuous-variable quantum computation',
-    'long_description': open('README.rst').read(),
+    'long_description': open('README.rst', encoding='utf-8').read(),
     'provides': ["strawberryfields"],
     'install_requires': requirements,
     # 'extras_require': extra_requirements,

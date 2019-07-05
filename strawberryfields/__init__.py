@@ -25,17 +25,19 @@ Overview
 |
 
 The Strawberry Fields codebase includes a number of complementary components.
-These can be separated into frontend components (:file:`engine.py`, :file:`ops.py`,
-and :file:`utils.py`) and backend components (all found within the :file:`strawberryfields.backends` submodule).
+These can be separated into frontend components
+and backend components (all found within the :file:`strawberryfields.backends` submodule).
 
 Software components
 -------------------
 
 **Frontend:**
 
+* Quantum programs: :mod:`strawberryfields.program`
 * Quantum compiler engine: :mod:`strawberryfields.engine`
 * Quantum operations: :mod:`strawberryfields.ops`
 * Utilities: :mod:`strawberryfields.utils`
+* Circuit drawer: :mod:`strawberryfields.circuitdrawer`
 
 **Backend:**
 
@@ -49,20 +51,23 @@ Top-level functions
 -------------------
 
 .. autosummary::
-   Engine
    convert
    version
 
 Code details
 ~~~~~~~~~~~~
 """
-
-from __future__ import unicode_literals
+from .engine import (Engine, LocalEngine)
+from .io import save, load
+from .program_utils import _convert as convert
+from .program import Program
 from ._version import __version__
-from .engine import Engine as _Engine
-from .engine import _convert as convert
 
-__all__ = ['Engine', 'convert', 'version']
+__all__ = ["Engine", "LocalEngine", "Program", "convert", "version", "save", "load", "about", "cite"]
+
+
+#: float: numerical value of hbar for the frontend (in the implicit units of position * momentum)
+hbar = 2
 
 
 def version():
@@ -75,20 +80,48 @@ def version():
     return __version__
 
 
-def Engine(num_subsystems, **kwargs):
-    r"""
-    Helper function for creating an engine and associated quantum register.
+def about():
+    """About box for Strawberry Fields.
 
-    Args:
-      num_subsystems (int): number of subsystems in the quantum register
-    Keyword Args:
-      hbar (float): The value of :math:`\hbar` to initialise the engine with, depending on the
-        conventions followed. By default, :math:`\hbar=2`. See
-        :ref:`conventions` for more details.
-
-    Returns:
-        (strawberryFields.engine.Engine, tuple[RegRef]): tuple containing (i) a Strawberry Fields Engine object, and (ii) a tuple of quantum register references
-
+    Prints the installed version numbers for SF and its dependencies,
+    and some system info. Please include this information in bug reports.
     """
-    eng = _Engine(num_subsystems, **kwargs)
-    return eng, eng.register
+    import sys
+    import platform
+    import os
+    import numpy
+    import scipy
+
+    # a QuTiP-style infobox
+    print('\nStrawberry Fields: a Python library for continuous-variable quantum circuits.')
+    print('Copyright 2018-2019 Xanadu Quantum Technologies Inc.\n')
+
+    print('Python version:            {}.{}.{}'.format(*sys.version_info[0:3]))
+    print('Platform info:             {}'.format(platform.platform()))
+    print('Installation path:         {}'.format(os.path.dirname(__file__)))
+    print('Strawberry Fields version: {}'.format(__version__))
+    print('Numpy version:             {}'.format(numpy.__version__))
+    print('Scipy version:             {}'.format(scipy.__version__))
+    try:
+        import tensorflow
+        tf_version = tensorflow.__version__
+    except ModuleNotFoundError:
+        tf_version = None
+    print('TensorFlow version:        {}'.format(tf_version))
+
+
+def cite():
+    """Prints a BibTeX citation for Strawberry Fields.
+    """
+    citation = """@article{strawberryfields,
+    title = {{S}trawberry {F}ields: A Software Platform for Photonic Quantum Computing},
+    author = {Killoran, Nathan and Izaac, Josh and Quesada, Nicol{\'{a}}s and Bergholm, Ville and Amy, Matthew and Weedbrook, Christian},
+    journal = {Quantum},
+    volume = {3},
+    pages = {129},
+    year = {2019},
+    doi = {10.22331/q-2019-03-11-129},
+    archivePrefix = {arXiv},
+    eprint = {1804.03159},
+}"""
+    print(citation)

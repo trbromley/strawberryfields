@@ -1,8 +1,66 @@
-# Release 0.10.0.dev0 (development)
+#  Release 0.11.dev
+
+### New features
+
+- The functionality of the `Engine` class has been divided into two new classes: `Program`, which represents a quantum circuit or a fragment thereof, and `Engine`, which executes `Program` instances.
+- Introduced the `BaseEngine` abstract base class and the `LocalEngine` child class. `Engine` is kept as an alias for `LocalEngine`.
+- The Engine API has been changed slightly:
+    - `LocalEngine.run()` returns a `Result` object that contains both a state object and measurement samples.
+    - The way kwargs were used has been simplified by introducing the new kwargs-like arguments `backend_options` and `state_options`. `LocalEngine.run()` passes the actual kwargs only to `Operation.apply()`.
+- The Gaussian backend now officially supports Fock-basis measurements (`MeasureFock`/`Measure`/`measure_fock`), but does not update the quantum state.
+- New `shots` keyword argument added to `Engine.run()`, enabling multi-shot sampling. Supported only in the Gaussian backend, and only for Fock measurements.
+- Added the ability to compile quantum programs to match a desired circuit target.
+- Included a number of compilation targets, including Gaussian Boson Sampling circuits.
+- Added a frontend validation database, the `devicespecs` submodule, for validating that quantum programs can be executed on certain backends and providing compilation methods.
+- Added the `sf.io` module, which is used to save/load standalone Blackbird scripts from/into Strawberry Fields. Note that the Blackbird DSL has been spun off as an independent package and is now a dependency of Strawberry Fields.
+- Added a new decomposition `mach_zehnder` to the decompositions module. 
+- Added a `Configuration` class, which is used to load, store, save, and modify configuration options for Strawberry Fields.
+- The way hbar is handled has been simplified:
+    - The backend API is now entirely hbar-independent, i.e., every backend API method is defined in terms of a and a^\dagger only, not x and p.
+    - The backends always explicitly use `hbar=2` internally.
+    - `hbar` is now a global, frontend-only variable that the user can set at the beginning of the session. It is used at the `Operation.apply()` level to scale the inputs and outputs of the backend API calls as needed, and inside the `State` objects.
+    - The only backend API calls that need to do hbar scaling for the input parameters are the X, Z, and V gates, the Gaussian state decomposition, and homodyne measurements (both the returned value and postselection argument are scaled).
+- Added the ability to generate random real (orthogonal) interferometers and random block diagonal symplectic and covariance matrices.
+- Added two top-level functions:
+    - `about()`, which prints human-readable system info including installed versions of various Python packages.
+    - `cite()`, which prints a bibtex citation for SF.
+- Added a glossary to the documentation
+
+
+### Improvements
+
+- Removed TensorFlow as an explicit dependency of Strawberry Fields. This was causing complicated dependency issues due to version mismatches between TensorFlow, Strawberry Fields, and Python 3, which made installing difficult for new users. Advanced users can still install TensorFlow manually using `pip install tensorflow==1.3` and use as before.
+- The behaviour and function signature of the `GraphEmbed` operation has been updated.
+- Remove the unused `Command.decomp` instance attribute.
+- Better error messages for the `New` operation when used outside of a circuit.
+- Docstrings updated in the decompositions module.
+- Docstrings for Fock backend reformatted and cleaned up.
+- Cleaning up of citations and `references.bib` file.
+- Typos in documentation fixed.
+
+## Bug fixes
+
+- Fixed a bug with installation on Windows for certain locales.
+- Fixed a bug in the `New` operation.
+- Bugfix in `Gate.merge()`
+- Fixed bugs in `measure_fock` in the TensorFlow backend which caused samples to be evaluated independently and for conditional states to be potentially decoupled from the measurement results.
+- Fixed a latent bug in `graph_embed`.
+- Bugfix for Bloch-Messiah returning non-symplectic matrices when input is passive.
+
+### Contributors
+
+This release contains contributions from (in alphabetical order):
+
+Ville Bergholm, Tom Bromley, Ish Dhand, Karel Dumon, Xueshi Guo, Josh Izaac, Nathan Killoran, Leonhard Neuhaus, Nicolás Quesada.
+
+
+# Release 0.10
 
 ### New features
 
 - Added two new utility functions to extract a numerical representation of a circuit from an Engine object: `extract_unitary` and `extract_channel`.
+
+- Added a LaTeX quantum circuit drawer, that outputs the engine queue or the applied operations as a qcircuit compatible circuit diagram.
 
 - Added support for an alternative form of Clements decomposition, where the local phases occur at the end rather than in the middle of the beamsplitter array. This decomposition is more symmetric than the intermediate one, which could make it more robust. This form also makes it easier to implement a tensor-network simulation of linear optics.
 
@@ -10,7 +68,11 @@
 
 - Adds support for the Reck decomposition
 
+- Added documentation to the Quantum Algorithms section on CV quantum neural networks
+
 ### Improvements
+
+- Test suite has been ported to pytest
 
 - Linting improvements
 
@@ -22,9 +84,9 @@
 
 ### Contributors
 
-This release contains contributions from:
+This release contains contributions from (in alphabetical order):
 
-Filippo Miatto, Ish Dhand, Nicolás Quesada, Josh Izaac, Christian Gogolin, Shahnawaz Ahmed, and Nathan Killoran.
+Shahnawaz Ahmed, Thomas R. Bromley, Ish Dhand, Marcus Edwards, Christian Gogolin, Josh Izaac, Nathan Killoran, Filippo Miatto, Nicolás Quesada.
 
 
 # Release 0.9
@@ -128,3 +190,4 @@ Initial public release.
 This release contains contributions from:
 
 Nathan Killoran, Josh Izaac, Nicolás Quesada, Matthew Amy, and Ville Bergholm.
+

@@ -81,7 +81,7 @@ Finally, detailed documentation on the :ref:`Strawberry fields API <code>` is pr
 How to cite
 ===========
 
-If you are doing research using Strawberry Fields, please cite `our paper <https://quantum-journal.org/papers/q-2019-03-11-129/>`_:
+If you are doing research using Strawberry Fields, please cite `our paper <https://quantum-journal.org/papers/q-2019-03-11-129/>`_ :cite:`strawberryfields`:
 
   Nathan Killoran, Josh Izaac, Nicolás Quesada, Ville Bergholm, Matthew Amy, and Christian Weedbrook. "Strawberry Fields: A Software Platform for Photonic Quantum Computing", Quantum, 3, 129 (2019).
 
@@ -112,7 +112,6 @@ Strawberry Fields is **free** and **open source**, released under the Apache Lic
    gallery/gallery
    research
 
-
 .. toctree::
    :maxdepth: 2
    :caption: Continuous-variable quantum computing
@@ -121,6 +120,7 @@ Strawberry Fields is **free** and **open source**, released under the Apache Lic
    introduction
    op_conventions
    quantum_algorithms
+   glossary
    references
 
 .. toctree::
@@ -141,9 +141,13 @@ Strawberry Fields is **free** and **open source**, released under the Apache Lic
    :hidden:
 
    code/code
+   code/program
+   code/devicespecs
    code/engine
    code/ops
+   code/decompositions
    code/utils
+   code/circuitdrawer
    code/backend
    code/backend.states
    code/backend.gaussian

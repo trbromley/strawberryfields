@@ -45,7 +45,14 @@ MOCK_MODULES = [
     'scipy.linalg',
     'tensorflow',
     'networkx',
-    'numbers'
+    'networkx.algorithms',
+    'numbers',
+    'blackbird',
+    'blackbird.utils',
+    'hafnian',
+    'hafnian.lib',
+    'hafnian.samples',
+    'hafnian.quantum',
     ]
 
 np_math_fns = ['abs',
@@ -74,6 +81,9 @@ mock_fns.update({"pi": MagicMock(),
                  "Number": int,
                  "Tensor": list,
                  "Variable": list,
+                 # The following line is to 'trick' Strawberry Fields into
+                 # letting Sphinx import the tf backend without TensorFlow being installed.
+                 "__version__": "1.3",
                  "ndarray": MagicMock})
 
 mock = Mock(**mock_fns)
@@ -103,6 +113,7 @@ extensions = [
     'nbsphinx'
 ]
 
+mathjax_path = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"
 
 # nbsphinx settings
 

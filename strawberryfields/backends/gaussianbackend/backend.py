@@ -13,8 +13,24 @@
 # limitations under the License.
 # pylint: disable=too-many-public-methods
 """Gaussian backend"""
-from numpy import empty, concatenate, array, identity, arctan2, angle, sqrt, dot, vstack
+import warnings
+
+from numpy import (
+    empty,
+    concatenate,
+    array,
+    identity,
+    arctan2,
+    angle,
+    sqrt,
+    dot,
+    vstack,
+    zeros_like,
+    allclose,
+    ix_,
+)
 from numpy.linalg import inv
+from hafnian.samples import hafnian_sample_state
 
 from strawberryfields.backends import BaseGaussian
 from strawberryfields.backends.shared_ops import changebasis
@@ -26,224 +42,116 @@ from .states import GaussianState
 
 class GaussianBackend(BaseGaussian):
     """Gaussian backend implementation"""
+
     def __init__(self):
-        """
-        Instantiate a GaussianBackend object.
+        """Initialize the backend.
         """
         super().__init__()
         self._supported["mixed_states"] = True
         self._short_name = "gaussian"
+        self._init_modes = None
+        self.circuit = None
 
-    def begin_circuit(self, num_subsystems, cutoff_dim=None, hbar=2, pure=None, **kwargs):
-        r"""
-        Create a quantum circuit (initialized in vacuum state) with number of modes
-        equal to num_subsystems.
-
-        Args:
-            num_subsystems (int): number of modes the circuit should begin with
-            hbar (float): The value of :math:`\hbar` to initialise the circuit with, depending on the conventions followed.
-                By default, :math:`\hbar=2`. See :ref:`conventions` for more details.
-        """
-        # pylint: disable=attribute-defined-outside-init
+    def begin_circuit(self, num_subsystems, **kwargs):
         self._init_modes = num_subsystems
-        self.circuit = GaussianModes(num_subsystems, hbar)
+        self.circuit = GaussianModes(num_subsystems)
 
     def add_mode(self, n=1):
-        """
-        Add n new modes to the underlying circuit state. Indices for new modes
-        always occur at the end of the covariance matrix.
-
-        Note: this will increase the number of indices used for the state representation.
-
-        Args:
-            n (int): the number of modes to be added to the circuit.
-        """
         self.circuit.add_mode(n)
 
     def del_mode(self, modes):
-        """
-        Trace out the specified modes from the underlying circuit state.
-
-        Note: this will reduce the number of indices used for the state representation.
-
-        Args:
-            modes (list[int]): the modes to be removed from the circuit.
-        """
         self.circuit.del_mode(modes)
 
     def get_modes(self):
-        """
-        Return the indices of the modes that are active (the ones that have not been deleted).
-
-        Returns:
-            active modes (list[int]): the active modes in the circuit
-        """
         return self.circuit.get_modes()
 
     def reset(self, pure=True, **kwargs):
-        """
-        Resets the circuit state back to an all-vacuum state.
-        """
         self.circuit.reset(self._init_modes)
 
     def prepare_thermal_state(self, nbar, mode):
-        """
-        Prepare the vacuum state on the specified mode.
-
-        Note: this may convert the state representation to mixed.
-
-        Args:
-            nbar (float): mean number of photons in the mode
-            mode (int): index of mode where state is prepared
-        """
         self.circuit.init_thermal(nbar, mode)
 
     def prepare_vacuum_state(self, mode):
-        """
-        Prepare the vacuum state on the specified mode.
-
-        Note: this may convert the state representation to mixed.
-
-        Args:
-            mode (int): index of mode where state is prepared
-        """
         self.circuit.loss(0.0, mode)
 
     def prepare_coherent_state(self, alpha, mode):
-        """
-        Prepare a coherent state with parameter alpha on the specified mode.
-
-        Args:
-            alpha (complex): coherent state displacement parameter
-            mode (int): index of mode where state is prepared
-        """
-
         self.circuit.loss(0.0, mode)
         self.circuit.displace(alpha, mode)
 
     def prepare_squeezed_state(self, r, phi, mode):
-        """
-        Prepare a coherent state with parameters (r, phi) on the specified mode.
-
-        Args:
-            r (float): squeezing amplitude
-            phi (float): squeezing phase
-            mode (int): index of mode where state is prepared
-        """
         self.circuit.loss(0.0, mode)
         self.circuit.squeeze(r, phi, mode)
 
-    def rotation(self, phi, mode):
-        """
-        Perform a phase-space rotation by angle phi on the specified mode.
+    def prepare_displaced_squeezed_state(self, alpha, r, phi, mode):
+        self.circuit.loss(0.0, mode)
+        self.circuit.squeeze(r, phi, mode)
+        self.circuit.displace(alpha, mode)
 
-        Args:
-            phi (float):
-            mode (int): index of mode where operation is carried out
-        """
+    def rotation(self, phi, mode):
         self.circuit.phase_shift(phi, mode)
 
     def displacement(self, alpha, mode):
-        """
-        Perform a displacement operation on the specified mode.
-
-        Args:
-            alpha (float): displacement parameter
-            mode (int): index of mode where operation is carried out
-        """
         self.circuit.displace(alpha, mode)
 
     def squeeze(self, z, mode):
-        """
-        Perform a squeezing operation on the specified mode.
-
-        Args:
-            z (complex): squeezing parameter
-            mode (int): index of mode where operation is carried out
-
-        """
         phi = angle(z)
         r = abs(z)
         self.circuit.squeeze(r, phi, mode)
 
-    def prepare_displaced_squeezed_state(self, alpha, r, phi, mode):
-        """
-        Prepare a displaced squezed state with parameters (alpha, r, phi) on the specified mode.
-        Note: this may convert the state representation to mixed.
-
-        Args:
-            alpha (complex): displacement parameter
-            r (float): squeezing amplitude
-            phi (float): squeezing phase
-            mode (int): index of mode where state is prepared
-        """
-
-        self.circuit.squeeze(r, phi, mode)
-        self.circuit.displace(alpha, mode)
-
     def beamsplitter(self, t, r, mode1, mode2):
-        """
-        Perform a beamsplitter operation on the specified modes.
-
-        It is assumed that :math:`|r|^2+|t|^2 = t^2+|r|^2=1`, i.e that t is real.
-
-        Args:
-            t (float): transmittivity parameter
-            r (complex): reflectivity parameter
-            mode1 (int): index of first mode where operation is carried out
-            mode2 (int): index of second mode where operation is carried out
-        """
         if isinstance(t, complex):
             raise ValueError("Beamsplitter transmittivity t must be a float.")
         theta = arctan2(abs(r), t)
         phi = angle(r)
         self.circuit.beamsplitter(-theta, -phi, mode1, mode2)
 
-    def measure_homodyne(self, phi, mode, select=None, **kwargs):
-        """
-        Perform a homodyne measurement on the specified modes.
+    def measure_homodyne(self, phi, mode, shots=1, select=None, **kwargs):
+        r"""Measure a :ref:`phase space quadrature <homodyne>` of the given mode.
 
-        .. note:: The rotation has its sign flipped since the rotation in this case
-            is defined to act on the measurement effect and not in the state
+        See :meth:`.BaseBackend.measure_homodyne`.
 
-        Args:
-            phi (float): angle (relative to x-axis) for the measurement
-            mode (int): index of mode where operation is carried out
-            **kwargs: Can be used to (optionally) pass user-specified numerical parameter `eps`.
-                                Homodyne amounts to projection onto a quadrature eigenstate. This eigenstate is approximated
-                                by a squeezed state whose variance has been squeezed to the amount eps, V_(meas) = eps**2.
-                                Perfect homodyning is obtained when eps \to 0.
+        Keyword Args:
+            eps (float): Homodyne amounts to projection onto a quadrature eigenstate.
+                This eigenstate is approximated by a squeezed state whose variance has been
+                squeezed to the amount ``eps``, :math:`V_\text{meas} = \texttt{eps}^2`.
+                Perfect homodyning is obtained when ``eps`` :math:`\to 0`.
+
         Returns:
-            float or Tensor: measurement outcomes
+            float: measured value
         """
-        if "eps" in kwargs:
-            eps = kwargs["eps"]
-        else:
-            eps = 0.0002
+        if shots != 1:
+            if select is not None:
+                raise NotImplementedError("Gaussian backend currently does not support "
+                                          "postselection if shots != 1 for homodyne measurement")
 
+            raise NotImplementedError("Gaussian backend currently does not support "
+                                      "shots != 1 for homodyne measurement")
+
+        # phi is the rotation of the measurement operator, hence the minus
         self.circuit.phase_shift(-phi, mode)
 
         if select is None:
-            qs = self.circuit.homodyne(mode, eps)[0]
+            qs = self.circuit.homodyne(mode, **kwargs)[0, 0]
         else:
-            val = select * 2/sqrt(2*self.circuit.hbar)
-            qs = self.circuit.post_select_homodyne(mode, val, eps)
+            val = select * 2 / sqrt(2 * self.circuit.hbar)
+            qs = self.circuit.post_select_homodyne(mode, val, **kwargs)
 
-        return qs * sqrt(2*self.circuit.hbar)/2
+        return qs * sqrt(2 * self.circuit.hbar) / 2
 
-    def measure_heterodyne(self, mode, select=None):
-        """
-        Perform a heterodyne measurement on the specified modes.
+    def measure_heterodyne(self, mode, shots=1, select=None):
 
-        Args:
-            mode (int): index of mode where operation is carried out
-        Returns:
-            complex : measurement outcome
-        """
+        if shots != 1:
+            if select is not None:
+                raise NotImplementedError("Gaussian backend currently does not support "
+                                          "postselection if shots != 1 for heterodyne measurement")
+
+            raise NotImplementedError("Gaussian backend currently does not support "
+                                      "shots != 1 for heterodyne measurement")
+
         if select is None:
             m = identity(2)
-            res = 0.5*self.circuit.measure_dyne(m, [mode])
-            return res[0]+1j*res[1]
+            res = 0.5 * self.circuit.measure_dyne(m, [mode], shots=shots)
+            return res[0, 0] + 1j * res[0, 1]
 
         res = select
         self.circuit.post_select_heterodyne(mode, select)
@@ -251,31 +159,22 @@ class GaussianBackend(BaseGaussian):
         return res
 
     def prepare_gaussian_state(self, r, V, modes):
-        r"""Prepare the given Gaussian state (via the provided vector of
-        means and the covariance matrix) in the specified modes.
-
-        The requested mode(s) is/are traced out and replaced with the given Gaussian state.
-
-        Args:
-            r (array): the vector of means in xp ordering.
-            V (array): the covariance matrix in xp ordering.
-            modes (int or Sequence[int]): which mode to prepare the state in
-                If the modes are not sorted, this is take into account when preparing the state.
-                i.e., when a two mode state is prepared in modes=[3,1], then the first
-                mode of state goes into mode 3 and the second mode goes into mode 1 of the simulator.
-        """
         if isinstance(modes, int):
             modes = [modes]
 
         # make sure number of modes matches shape of r and V
         N = len(modes)
-        if len(r) != 2*N:
-            raise ValueError("Length of means vector must be twice the number of modes.")
-        if V.shape != (2*N, 2*N):
-            raise ValueError("Shape of covariance matrix must be [2N, 2N], where N is the number of modes.")
+        if len(r) != 2 * N:
+            raise ValueError(
+                "Length of means vector must be twice the number of modes."
+            )
+        if V.shape != (2 * N, 2 * N):
+            raise ValueError(
+                "Shape of covariance matrix must be [2N, 2N], where N is the number of modes."
+            )
 
         # convert xp-ordering to symmetric ordering
-        means = vstack([r[:N], r[N:]]).reshape(-1, order='F')
+        means = vstack([r[:N], r[N:]]).reshape(-1, order="F")
         C = changebasis(N)
         cov = C @ V @ C.T
 
@@ -283,81 +182,84 @@ class GaussianBackend(BaseGaussian):
         self.circuit.fromsmean(means, modes)
 
     def is_vacuum(self, tol=0.0, **kwargs):
-        """
-        Numerically check that the fidelity of the circuit state with vacuum is within
-        tol of 1.
-
-        Args:
-            tol(float): value of the tolerance.
-        """
         return self.circuit.is_vacuum(tol)
 
     def loss(self, T, mode):
-        """Perform a loss channel operation on the specified mode.
-
-        Args:
-            T (float): loss parameter
-            mode (int): index of mode where operation is carried out
-        """
         self.circuit.loss(T, mode)
 
     def thermal_loss(self, T, nbar, mode):
-        """Perform a thermal loss channel operation on the specified mode.
-
-        Args:
-            T (float): loss parameter
-            nbar (float): mean photon number of the environment thermal state
-            mode (int): index of mode where operation is carried out
-        """
         self.circuit.thermal_loss(T, nbar, mode)
 
+    def measure_fock(self, modes, shots=1, select=None):
+        if shots != 1:
+            if select is not None:
+                raise NotImplementedError("Gaussian backend currently does not support "
+                                          "postselection if shots != 1 for Fock measurement")
+            warnings.warn("Cannot simulate non-Gaussian states. "
+                          "Conditional state after Fock measurement has not been updated.")
+
+        mu = self.circuit.mean
+        cov = self.circuit.scovmatxp()
+        # check we are sampling from a gaussian state with zero mean
+        if not allclose(mu, zeros_like(mu)):
+            raise NotImplementedError("PNR measurement is only supported for "
+                                      "Gaussian states with zero mean")
+        x_idxs = array(modes)
+        p_idxs = x_idxs + len(mu)
+        modes_idxs = concatenate([x_idxs, p_idxs])
+        reduced_cov = cov[ix_(modes_idxs, modes_idxs)]
+        samples = hafnian_sample_state(reduced_cov, shots)
+        # for backward compatibility with previous measurement behaviour,
+        # if only one shot, then we drop the shots axis
+        if shots == 1:
+            samples = samples.reshape((len(modes),))
+        return samples
+
     def state(self, modes=None, **kwargs):
-        """ Returns the vector of means and the covariance matrix of the specified modes.
+        """Returns the state of the quantum simulation.
 
-        Args:
-            modes (list[int]) : indices of the requested modes. If none, all modes returned.
+        See :meth:`.BaseBackend.state`.
+
         Returns:
-            tuple (means, covmat) where means is a numpy array containing the mean values
-            of the qaudratures and covmats is a numpy square array containing the covariance
-            matrix of said modes
+            GaussianState: state description
         """
-
         m = self.circuit.scovmat()
         r = self.circuit.smean()
 
         if modes is None:
             modes = list(range(len(self.get_modes())))
 
-        listmodes = list(concatenate((2*array(modes), 2*array(modes)+1)))
-        covmat = empty((2*len(modes), 2*len(modes)))
+        listmodes = list(concatenate((2 * array(modes), 2 * array(modes) + 1)))
+        covmat = empty((2 * len(modes), 2 * len(modes)))
         means = r[listmodes]
 
         for i, ii in enumerate(listmodes):
             for j, jj in enumerate(listmodes):
                 covmat[i, j] = m[ii, jj]
 
-        means *= sqrt(2*self.circuit.hbar)/2
-        covmat *= self.circuit.hbar/2
+        means *= sqrt(2 * self.circuit.hbar) / 2
+        covmat *= self.circuit.hbar / 2
 
         mode_names = ["q[{}]".format(i) for i in array(self.get_modes())[modes]]
 
         # qmat and amat
         qmat = self.circuit.qmat()
-        N = qmat.shape[0]//2
+        N = qmat.shape[0] // 2
 
         # work out if qmat and Amat need to be reduced
         if 1 <= len(modes) < N:
             # reduce qmat
-            ind = concatenate([array(modes), N+array(modes)])
+            ind = concatenate([array(modes), N + array(modes)])
             rows = ind.reshape((-1, 1))
             cols = ind.reshape((1, -1))
             qmat = qmat[rows, cols]
 
             # calculate reduced Amat
-            N = qmat.shape[0]//2
-            Amat = dot(xmat(N), identity(2*N)-inv(qmat))
+            N = qmat.shape[0] // 2
+            Amat = dot(xmat(N), identity(2 * N) - inv(qmat))
         else:
             Amat = self.circuit.Amat()
 
-        return GaussianState((means, covmat), len(modes), qmat, Amat,
-                             hbar=self.circuit.hbar, mode_names=mode_names)
+        return GaussianState(
+            (means, covmat), len(modes), qmat, Amat, mode_names=mode_names
+        )

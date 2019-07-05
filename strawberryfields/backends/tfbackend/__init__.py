@@ -57,20 +57,28 @@ while mixed states have shape
 
 .. currentmodule:: strawberryfields.backends.tfbackend.TFBackend
 
-Basic quantum simulator methods
-================================
+TFBackend methods
+=================
 
-The :class:`TFBackend` simulator implements a number of state preparations, gates, and measurements (listed below).
 The parameters supplied for these operations can be either numeric (float, complex) values
 or Tensorflow :class:`Variables`/:class:`Tensors`. The Tensorflow objects can either be scalars or vectors. For
 vectors, they must have the same dimension as the declared batch size of the underlying circuit.
 
 .. autosummary::
+   supports
    begin_circuit
+   add_mode
+   del_mode
+   get_modes
+   get_cutoff_dim
+   reset
+   state
+   is_vacuum
    prepare_vacuum_state
    prepare_coherent_state
    prepare_squeezed_state
    prepare_displaced_squeezed_state
+   prepare_thermal_state
    prepare_fock_state
    prepare_ket_state
    prepare_dm_state
@@ -82,20 +90,11 @@ vectors, they must have the same dimension as the declared batch size of the und
    kerr_interaction
    cross_kerr_interaction
    loss
-   measure_fock
+   thermal_loss
    measure_homodyne
-   del_mode
-   add_mode
-   get_modes
-   state
-
-Auxiliary methods
-==================
-
-.. autosummary::
-   reset
-   get_cutoff_dim
+   measure_fock
    graph
+
 
 Code details
 ~~~~~~~~~~~~
@@ -142,6 +141,60 @@ Code details
    :members:
 
 """
+import sys
+
+try:
+    import tensorflow
+except (ImportError, ModuleNotFoundError):
+    tf_available = False
+    tf_version = None
+else:
+    tf_available = True
+    tf_version = tensorflow.__version__
+
+
+tf_info = """\
+To use Strawberry Fields with TensorFlow support, version 1.3 of
+TensorFlow is required. This can be installed as follows:
+
+pip install tensorflow==1.3
+"""
+
+
+tf_info_python = """\
+To use Strawberry Fields with TensorFlow support, version 1.3 of
+TensorFlow is required.
+
+Note that TensorFlow version 1.3 is only supported on Python versions
+less than or equal to 3.6. To continue using TensorFlow with Strawberry Fields,
+you will need to install Python 3.6.
+
+The recommended method is to install Anaconda3:
+
+https://www.anaconda.com/download
+
+Once installed, you can then create a Python 3.6 Conda environment:
+
+conda create --name sf_tensorflow_env python=3.6
+conda activate sf_tensorflow_env
+pip install strawberryfields tensorflow==1.3
+"""
+
+
+def excepthook(type, value, traceback):
+    """Exception hook to suppress superfluous exceptions"""
+    #pylint: disable=unused-argument
+    print(value)
+
+
+if not (tf_available and tf_version[:3] == "1.3"):
+    sys.excepthook = excepthook
+
+    if sys.version_info[1] > 6:
+        raise ImportError(tf_info_python)
+
+    raise ImportError(tf_info)
+
 
 from .backend import TFBackend
 from .ops import def_type as tf_complex_type

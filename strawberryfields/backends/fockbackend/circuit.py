@@ -52,14 +52,12 @@ class Circuit():
     in the fock basis.
     """
 
-    def __init__(self, num, trunc, hbar=2, pure=True, do_checks=False, mode='blas'):
+    def __init__(self, num, trunc, pure=True, do_checks=False, mode='blas'):
         r"""Class initializer.
 
         Args:
             num (non-negative int): Number of modes in the register.
             trunc (positive int): Truncation parameter.  Fock states up to |trunc-1> are representable.
-            hbar (int): The value of :math:`\hbar` to initialise the circuit with, depending on the conventions followed.
-                By default, :math:`\hbar=2`. See :ref:`conventions` for more details.
             pure (bool, optional): Whether states are pure (True) or mixed (False)
             do_checks (bool, optional): Whether arguments are to be checked first
             mode (str, optional): Whether to use BLAS or einsum for matrix operations.
@@ -74,7 +72,7 @@ class Circuit():
             raise ValueError("Truncation must be positive -- got {}".format(trunc))
 
         self._num_modes = num
-        self._hbar = hbar
+        self._hbar = 2
         self._checks = do_checks
         self._mode = mode
         self.reset(pure=pure, cutoff_dim=trunc)
@@ -363,12 +361,12 @@ class Circuit():
         """
         Tests whether the system is in the vacuum state.
         """
-        # base_shape = [self._trunc for i in range(self._num_modes)]
+        # fid = <0|\rho|0>
         if self._pure:
-            vac = ops.vacuumState(self._num_modes, self._trunc)
+            fid = np.abs(self._state.flat[0]) ** 2
         else:
-            vac = ops.vacuumStateMixed(self._num_modes, self._trunc)
-        return np.linalg.norm((self._state - vac).ravel()) < tol
+            fid = self._state.flat[0]
+        return np.abs(fid-1) <= tol
 
     def get_state(self):
         """
@@ -433,6 +431,8 @@ class Circuit():
             unmeasured = [i for i in range(self._num_modes) if i not in measure]
             reduced = ops.partial_trace(state, self._num_modes, unmeasured)
             dist = np.ravel(ops.diagonal(reduced, len(measure)).real)
+            # kill spurious tiny values (which are sometimes negative)
+            dist = dist * ~np.isclose(dist, 0.)
 
             # Make a random choice
             if sum(dist) != 1:
